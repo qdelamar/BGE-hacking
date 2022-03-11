@@ -1,0 +1,83 @@
+#!/bin/bash
+
+#TODO: improve string reading
+
+if [ "$#" -ne 4 ] && [ "$#" -ne 3 ] && [ "$#" -ne 2 ]; then
+  echo "readmem: Utility to read a variable in process memory."
+  echo "         Requires root but not ptrace, allowing you to"
+  echo "         debug at the same time."
+  echo "                                     -qdelamar 2020-04"
+  echo "Usage: $0 process_name_or_pid address [type] [number]" >&2
+  echo "* address can be provided as 0xhex or decimal" >&2
+  echo "* type can be:" >&2
+  echo "   hex16" >&2
+  echo "   hex32 (default)" >&2
+  echo "   hex64" >&2
+  echo "   float32" >&2
+  echo "   float64" >&2
+  echo "   int16" >&2
+  echo "   int32" >&2
+  echo "   int64" >&2
+  echo "   string (20 chars.. to be improved)" >&2
+  echo "* number is the number of successive variables to read" >&2
+  echo "  default is 1" >&2
+  echo "examples:" >&2
+  echo "$0 1337 0x0babeadd float32" >&2
+  echo "$0 mysoft 0x0babeadd hex32 4" >&2
+  exit 1
+fi
+
+if [ "$#" -lt 4 ]; then
+  number=1
+else
+  number=$4
+fi
+
+if [ "$#" -lt 3 ]; then
+  type=hex32
+else
+  type=$3
+fi
+
+#check if process is a number
+if [ -n "$1" ] && [ "$1" -eq "$1" ] 2>/dev/null; then
+  pid=$1
+else
+  pid=$(pidof $1)
+fi
+
+if [[ "$type" =~ ^(hex16|int16)$ ]]; then
+  size=2
+elif [[ "$type" =~ ^(hex64|int64|float64)$ ]]; then
+  size=8
+else
+  size=4
+fi
+
+if [[ "$type" =~ ^(hex16)$ ]]; then
+  flags=-h
+elif [[ "$type" =~ ^(hex32|hex64)$ ]]; then
+  flags=-H
+elif [[ "$type" =~ ^(float32)$ ]]; then
+  flags=-f
+elif [[ "$type" =~ ^(float64)$ ]]; then
+  flags=-F
+else
+  flags=-I
+fi
+
+
+for i in `seq 1 $number`;
+do
+  if [[ "$type" =~ ^(string)$ ]]; then
+    #TODO: improve that
+    size=20
+    offset="$(($2+($i-1)*$size))"
+    #echo "offset: $offset, count: $size, pid: $pid"
+    sudo dd bs=1 skip=$offset count=$size if="/proc/$pid/mem" 2>/dev/null | od -An -w20 -c
+  else
+    #sudo dd bs=1 skip="$(($2+($i-1)*$size))" count=$size if="/proc/$pid/mem" 2>/dev/null | od -An $flags | awk '{ print $2 " " $1}' | sed -e 's/^[ \t]*//'
+    sudo dd bs=1 skip="$(($2+($i-1)*$size))" count=$size if="/proc/$pid/mem" 2>/dev/null | od -An $flags | awk '{ print $2 $1}' | sed -e 's/^[ \t]*//'
+  fi
+done
+
