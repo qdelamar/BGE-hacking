@@ -1,6 +1,10 @@
 #!/usr/bin/python3
 
-#2020-05
+#GPLv3
+#qdelamar, 2020-05
+
+#Run this script in the path where the original binary is.
+#This will create a new patched version of the binary.
 
 
 ### read source binary:
